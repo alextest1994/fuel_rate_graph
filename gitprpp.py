@@ -247,8 +247,8 @@ input_diesel_leer = 21.3
 input_diesel_beladen = 31.7
 max_möglich = 12000
 
-#speed = gp.quicksum(((((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * (((u[i] + Q[j]))/max_möglich)) * 2.629)/100) * dist[i,j]) * (x[i, j])for i in range(n) for j in range(n))
-speed = gp.quicksum(((((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * ((u[i] + Q[j] - capacity * (1 - x[i, j]))/max_möglich)) * 2.629)/100) * dist[i,j]) for i in range(n) for j in range(n))
+#speed = gp.quicksum(((((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * ((u[i] + Q[j] - capacity * (1 - x[i, j]))/max_möglich)) * 2.629)/100) * dist[i,j]) for i in range(n) for j in range(n))
+#speed = gp.quicksum(((((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * (((u[i] + Q[j] - capacity) * (1 - x[i, j]))/max_möglich)) * 2.629)/100) * dist[i,j]) for i in range(n) for j in range(n))
 #speed =  gp.quicksum(dist[i,j] * x[i, j] * Q[j] * 0.078 for i in range(n) for j in range(n))
 #totaldist = gp.quicksum(dist[i,j] * x[i,j] for i in range(n) for j in range(n))
 
@@ -256,38 +256,42 @@ speed = gp.quicksum(((((input_diesel_leer + (input_diesel_beladen - input_diesel
 
 #totaldistpart2 = gp.quicksum(0.0981 * Q[i] * dist[i,j] for i in range(n) for j in range(n))
 
-#prp_totaldist = gp.quicksum(dist[i,j] * x[i,j]   for i in range(n) for j in range(n))
+prp_totaldist = gp.quicksum(dist[i,j] * x[i,j]  for i in range(n) for j in range(n))
 
-#prp_loadcost = gp.quicksum(x[i,j]* (19 - Q[i]) * dist[i,j] for (i, j) in pairs)
+prp_loadcost = gp.quicksum((19 - Q[j]) * dist[i,j] *x[i,j] for (i, j) in pairs)
 
-#prp_speed = gp.quicksum((1.4 +  5) * dist[i,j] for i in range(n) for j in range(n))
+prp_speed = gp.quicksum((1.4 +  5) * dist[i,j] for i in range(n) for j in range(n))
 
-#prp_driver = gp.quicksum(15 * (dist[i,j]/70) for i in range(n) for j in range(n))
-
-
+prp_driver = gp.quicksum(15 * (dist[i,j]/70) for i in range(n) for j in range(n))
 
 
-td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
 
-#co2 = gp.quicksum(x[i,j] * ((capacity) - (Q[i]))* dist[i,j] for i in Q for j in Q)
+
+#td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
+
+#co2 = gp.quicksum(x[i,j] * ((capacity) - (Q[i])) for i in Q for j in Q)
 
 #kd = gp.quicksum(x[i,j] * (capacity - (Q[i])) for i in Q for j in Q)
 
 
 #tt = gp.quicksum(0.078 * (capacity - (Q[i]))  * dist[i,j] for i in range(n) for j in range(n) for i in Q)
 
+#prp_loadcost = gp.quicksum(x[i,j]* (7 - Q[i]) * dist[i,j] for (i, j) in pairs)
 
 #m.setObjectiveN(totaldist, 0)
-#m.setObjectiveN(prp_loadcost, 1)
+#m.setObjectiveN(prp_totaldist + prp_loadcost + prp_speed + prp_driver, 1)
+#m.setObjectiveN(speed,0)
+
+
 
 
 #co2 = gp.quicksum([x[i,j] * (capacity - (Q[i])) for i in Q for j in Q])
 
-m.setObjective(td + co2, GRB.MINIMIZE)
+m.setObjective(prp_totaldist + prp_loadcost + prp_speed + prp_driver, GRB.MINIMIZE)
 
 
 
-#m.ModelSense = GRB.MINIMIZE
+m.ModelSense = GRB.MINIMIZE
 # Optimize model
 
 m._x = x
@@ -361,55 +365,91 @@ for i, tup in enumerate(selected.select(0, '*')):
                          arrowprops=arrowprops)
 plt.show()
 # Print optimal routes
-
-total_route_length = 0
-total_route_costs = 0
-total_cost = 0
-
+# km/h in m/s Umrechnung
+pay = 10
+fuel_price = 1.4
+v = 40 * 0.2777778
+vkmh = 40
+convfactor = 8.8
+empty_vehicle = 7.5
+beta = 0.5 * 0.7 * 5 * 1.2041
+energy = 0
+gesamt = 0
+fuel = 0
 vals = m.getAttr('X', x)
 selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.99)
-truck_load_route = capacity
-for i, tup in enumerate(selected.select(0, '*')):
-    truck_full_loaded = (capacity + 6)
-    print("\nRoute for truck {}:\n 0 Load(0) Route_Load {}".format(i+1, truck_full_loaded), end='')
-    neighbor = tup[1]
-    truck_dist = distList[0][neighbor]
-    truck_load = Q[neighbor]
-    c = 0
-    route_costs = distList[0][neighbor] * 18 * 0.078
-    print("RTC", route_costs)
-    tc = 0
-    while neighbor:
-        truck_full_loaded -= Q[neighbor]
-        route_costs += truck_full_loaded * truck_dist * 0.078
-        print("\nKosten mit 0.078: {}".format(total_cost))
-        print(" -> {} Load({}) Route_Load {}".format(neighbor, truck_load, truck_full_loaded), end='')
-        next_neighbor = selected.select(neighbor, '*')[0][1]
-        #route_costs += distList[neighbor][next_neighbor]
+if empty_vehicle <= 10:
+    for i, tup in enumerate(selected.select(0, '*')):
+        print("\nRoute for truck {}:\n 0 Load(6)".format(i+1), end='')
+        neighbor = tup[1]
+        truck_dist = distList[0][neighbor]
+        #truck_load = Q[neighbor]
+        truck_typ_load = capacity
+        print(capacity)
+        #if truck_typ_load <= 4.0:
 
-        truck_dist += distList[neighbor][next_neighbor]
-        c += distList[neighbor][next_neighbor] * truck_full_loaded
-        tc += c * 0.078
-        print("\nccc", c, tc)
-        truck_load += Q[next_neighbor]
-        neighbor = next_neighbor
+        truck_load = capacity
+        #truck_load = capacity + 3
 
-        #total_cost = total_cost + route_costs
-    total_route_length += truck_dist
-    #total_cost = distList[neighbor][0]
-    total_cost += route_costs
-    print("Kosten: {}".format(truck_dist))
-    print(" -> 0 Load({})".format(truck_load))
-    print("Route distance: {}".format(truck_dist))
-    print("Route load: {}".format(truck_load))
-    print("Route load current location: {}".format(truck_load_route))
-    print("Route CCCCCCCCCCCCCCCCC: {}".format(c))
+        truck_loadminus = Q[neighbor]
+        #load-induced energy requirements in Joule // Energie durch 3,611e+6 dividieren, um ein ungefähres Ergebnis zu erhalten
+        load_induced = distList[0][neighbor] * 1000 * 0.0981 * truck_load * 1000
+        #speed-induced energy requirements in Joule // Energie durch 3,611e+6 dividieren, um ein ungefähres Ergebnis zu erhalten
+        speed_induced = distList[0][neighbor] * 1000 * v*v * beta
+        route_time = (distList[0][neighbor])/vkmh
+        KwRoute = (load_induced + speed_induced) * route_time
+        frate = (KwRoute/3600000)/convfactor
+        averageco2 = (((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * (truck_load*1000 / max_möglich)) * 2.629) / 100) * (distList[0][neighbor])
+        averagefuel = ((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * (truck_load*1000 / max_möglich))/ 100) * (distList[0][neighbor])
+        print("teeeeeest fuel", KwRoute,route_time, frate)
+        print("erste route", load_induced, "aus", distList[0][neighbor],truck_load)
+        print("averagefuel", averageco2, averagefuel)
+        print("speed_induced route", speed_induced, "aus", distList[0][neighbor], truck_load)
+        while neighbor:
+            truck_load -= Q[neighbor]
+            print(" -> {} Load({})".format(neighbor, truck_load, ), end='')
+            next_neighbor = selected.select(neighbor, '*')[0][1]
+            tr_dist = distList[neighbor][next_neighbor]
+            print("While Schleife Route distance: {} zu multiplizierendes Gewicht {}".format(truck_dist,truck_load))
+            truck_dist += distList[neighbor][next_neighbor]
+            nextroute = distList[neighbor][next_neighbor] * 1000 * 0.0981 * truck_load * 1000
+            nextroutes_speed_induced = distList[neighbor][next_neighbor] * 1000 * v*v * beta
+            next_route_time = (distList[neighbor][next_neighbor]) / vkmh
+            next_averagefuel = ((input_diesel_leer + (input_diesel_beladen - input_diesel_leer) * (truck_load *1000/ max_möglich)) / 100) * (distList[neighbor][next_neighbor])
+            print("time",next_route_time )
+            next_KwRoute = (nextroute + nextroutes_speed_induced) * next_route_time
+            print("next_KwRoute", next_KwRoute)
+            next_frate = (next_KwRoute / 3600000) / 8.8
+            print("fuel consumption next_frate", next_frate)
+            averagefuel += next_averagefuel
+            load_induced += nextroute
+            speed_induced += nextroutes_speed_induced
+            frate += next_frate
+            route_time += next_route_time
+            print("fuel consumption", frate, route_time)
+            print("nextroute", nextroute)
+            print("nextroutes_speed_induced",nextroutes_speed_induced)
+            print("load_induced", load_induced)
+            print("speed_induced", speed_induced)
+            neighbor = next_neighbor
+
+        gesamt += truck_dist
+        energy = load_induced + speed_induced
+        fuel += averagefuel
+        print("While Schleife Route distance: {} zu multiplizierendes Gewicht {} {}".format(truck_dist, truck_load, tr_dist))
+        print(" -> 0 Load({})".format(truck_load))
+        print("Route distance: {}".format(truck_dist))
+        print("Route load: {}".format(truck_load))
+    print("total fuel consumpted in liter",averagefuel)
+    print("fuel consumption", frate,"Spritkosten", frate * fuel_price,  "time spent",route_time, "Pay", route_time * pay, "Co2 Kosten",((frate * 2.32)/1000)*27 )
+    print("load_induced", load_induced)
+    print("speed_induced", speed_induced)
+    print("Gesamtkosten", energy)
+    #print("While Schleife Route distance: {} zu multiplizierendes Gewicht {} {}".format(truck_dist, truck_load, tr_dist))
+    print("\nTotal distance for all routes: {}".format(m.ObjVal))
+    print("gesamt", gesamt, "fuel", fuel)
 
 
-print("Total costsdist different calculation: {}".format(total_cost))
-print("Total Distance different calculation: {}".format(total_route_length))
-print("\nTotal distance for all routes: {}".format(m.ObjVal))
-print("Route TTTTTCCCCCCCCCCCCCCCCC: {}".format(c))
 
 m.write("out.mst")
 m.write("out.sol")
