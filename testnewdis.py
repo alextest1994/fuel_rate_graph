@@ -150,7 +150,7 @@ def create_data_model():
 
     # Initialize a random points matrix with values between 0, 10 (all points in the upper right 0,10 quadrant)
     rnd = np.random
-    np.random.seed(5)
+    np.random.seed(15)
 
     rows = 10  # number of points
     columns = 2  # number of dimensions - 2=2D, 3=3D etc.
@@ -160,17 +160,21 @@ def create_data_model():
             samples[i][j] = rnd.randint(0, 100)
 
     df3 = pd.DataFrame(samples, columns=['x', 'y'])
+    print(df3)
     distances = pd.DataFrame(distance_matrix(df3[['x', 'y']].values, df3[['x', 'y']].values), index=df3.index,columns = df3.index).values
 
     data['distance_matrix'] = distances
     data['num_vehicles'] = 3
     data['depot'] = 0
     #data['demands'] = [0.0, 3.0, 3.0, 6.0, 3.0, 3.0, 6.0, 4.0, 2.0, 3.0, 3.0]
+    data['vehicle_capacities'] = [12.0, 12.0, 12.0]
     rn = 10
-    rm = 36
+    rcap = data['vehicle_capacities']
+    print (rcap)
+    rm = rcap[0] * data['num_vehicles']
     b = rnd.multinomial(rm, np.ones(rn) / rn)
     data['demands'] = b
-    data['vehicle_capacities'] = [12.0, 12.0, 12.0]
+
     data['df3'] = df3
 
     return data
@@ -286,19 +290,32 @@ A = 3.912
 #prp_totaldist = gp.quicksum(1.4 *((9.81 * sin(0) + 9.81 * 0.01 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j]) for i in range(n) for j in range(n))
 
 #prp_totaldist = gp.quicksum(1.4 *(0.0981* dist[i,j] * 1000 * 26000 * x[i,j]) for i in range(n) for j in range(n))
-prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 13000 * x[i,j] for i in range(n) for j in range(n))
+#prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
 #prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
 
 #prp_load = gp.quicksum(1.4 * ((9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (Q[j])*1000) for i in range(n) for j in range(n))
-prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * (26 - (u[j]))*1000 for (i, j) in pairs)
+#prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 13000 * x[i,j] for i in range(n) for j in range(n))
 
-macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
+#prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
 
-speed =  gp.quicksum(dist[i,j] * x[i, j] * Q[j] * 0.078 for i in range(n) for j in range(n))
+#prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] *1000 *  ((u[j]))*1000 for (i, j) in pairs)
 
-prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * dist[i,j] *1000 * (40 * 0.2777778)**2 for i in range(n) for j in range(n))
+#prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
+prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
 
+prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (26-(u[i] + Q[j]))*1000 * x[i,j]  for (i, j) in pairs)
+#(u[i] + Q[j])
+#prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * x[i, j]* (Q[j])*1000  for (i, j) in pairs)
+
+#prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * x[i, j]* (26 - u[j])*1000 for (i, j) in pairs)
+#macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
+
+#speed =  gp.quicksum(dist[i,j] * x[i, j] * Q[j] * 0.078 for i in range(n) for j in range(n))
+
+
+prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * 8.2 * dist[i,j] *1000 * (40 * 0.2777778)**2 for i in range(n) for j in range(n))
 prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in range(n) for j in range(n))
+
 
 
 
@@ -339,7 +356,7 @@ m.optimize(subtourelim)
 # Print optimal routes
 gesamt = 0
 vals = m.getAttr('X', x)
-selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.90)
+selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.99)
 for i, tup in enumerate(selected.select(0, '*')):
     print("\nRoute for truck {}:\n 0 Load(0)".format(i+1), end='')
     neighbor = tup[1]

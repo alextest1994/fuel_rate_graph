@@ -265,17 +265,20 @@ p = 1.2041
 #Frontal surface area (meter2)
 A = 3.912
 
-prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 13000 * x[i,j] for i in range(n) for j in range(n))
+prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
 
-prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
+#prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
 
-prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (13 - (u[j]))*1000 for (i, j) in pairs)
+prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (26-(u[i] + Q[j]))*1000 * x[i,j]  for (i, j) in pairs)
+
+
 #prp_load = gp.quicksum(1.4 * ((9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (Q[j])*1000) for i in range(n) for j in range(n))
 
-macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
+#macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
 
-prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * dist[i,j] *1000 * (40 * 0.2777778) for i in range(n) for j in range(n))
+#prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * dist[i,j] *1000 * (40 * 0.2777778) for i in range(n) for j in range(n))
 
+prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * 8.2 * dist[i,j] *1000 * (40 * 0.2777778)**2 for i in range(n) for j in range(n))
 prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in range(n) for j in range(n))
 
 
@@ -303,7 +306,7 @@ prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in r
 
 #m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
 #m.setObjective(prp_totaldist, GRB.MINIMIZE)
-m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
+m.setObjective(prp_totaldist+ prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
 
 #m.ModelSense = GRB.MINIMIZE
 # Optimize model
