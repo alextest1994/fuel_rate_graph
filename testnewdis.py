@@ -15,11 +15,13 @@ from itertools import permutations
 import gurobipy as gp
 import numpy as np
 import pandas as pd
+from mpmath.libmp.backend import xrange
 from numpy import sin, cos
 from scipy.spatial import distance_matrix
-
+from numpy.random import multinomial
 
 from gurobipy import GRB
+
 
 def make_edges(ll):
 
@@ -143,20 +145,39 @@ def create_data_model():
 
     data = {}
     df = pd.DataFrame(np.array([[55, 55], [35, 60], [10, 60], [50, 70], [75, 90], [100, 40], [70, 10], [40, 20], [40, 40], [20, 10], [5, 15]]), columns=['x', 'y'])
-    distances = pd.DataFrame(distance_matrix(df[['x', 'y']].values, df[['x', 'y']].values), index=df.index,
-                             columns=df.index).values
+    #distances = pd.DataFrame(distance_matrix(df[['x', 'y']].values, df[['x', 'y']].values), index=df.index,columns=df.index).values
+
+
+    # Initialize a random points matrix with values between 0, 10 (all points in the upper right 0,10 quadrant)
+    rnd = np.random
+    np.random.seed(5)
+
+    rows = 10  # number of points
+    columns = 2  # number of dimensions - 2=2D, 3=3D etc.
+    samples = np.empty((rows, columns))
+    for i in xrange(0, rows):
+        for j in xrange(0, columns):
+            samples[i][j] = rnd.randint(0, 100)
+
+    df3 = pd.DataFrame(samples, columns=['x', 'y'])
+    distances = pd.DataFrame(distance_matrix(df3[['x', 'y']].values, df3[['x', 'y']].values), index=df3.index,columns = df3.index).values
 
     data['distance_matrix'] = distances
     data['num_vehicles'] = 3
     data['depot'] = 0
-    data['demands'] = [0.0, 3.0, 3.0, 6.0, 3.0, 3.0, 6.0, 4.0, 2.0, 3.0, 3.0]
-    data['vehicle_capacities'] = [12.0, 12.0, 12.0, 12.0]
+    #data['demands'] = [0.0, 3.0, 3.0, 6.0, 3.0, 3.0, 6.0, 4.0, 2.0, 3.0, 3.0]
+    rn = 10
+    rm = 36
+    b = rnd.multinomial(rm, np.ones(rn) / rn)
+    data['demands'] = b
+    data['vehicle_capacities'] = [12.0, 12.0, 12.0]
+    data['df3'] = df3
 
     return data
 
 
 data = create_data_model()
-
+newdf3 =  data['df3']
 distList = data['distance_matrix']
 
 fig, ax = plt.subplots(figsize=(8, 7))
@@ -187,17 +208,14 @@ if K > n:
 
 print(f"Total {n-1} customers, {K} trucks with {capacity} capacity")
 
-locations = ['Jena','Weimar', 'Erfurt','Apolda','Naumburg','Gera','Neustadt','Rudolstadt','Bad Berka','Stadtilm','Arnstadt']
+locations = ['0','1', '2','3','4','5','6','7','8','9','10']
 print(locations[0])
 
 
 # draw problem state
-df = pd.DataFrame(np.array([[55, 55, 0], [35, 60, 3],
-                            [10, 60, 3], [50, 70, 6],
-                            [75, 90, 3], [100, 40, 3],
-                            [70, 10, 6], [40, 20, 4],[40, 40, 2],[20, 10, 3.0],[5, 15, 3.0]]),
-                            columns=['x', 'y', 'demand'])
-for i, row in df.iterrows():
+
+
+for i, row in newdf3.iterrows():
     if i == 0:
         plt.scatter(row['x'], row['y'], c='r')
         plt.text(row['x'] + 1, row['y'] + 1, f'Depot - {locations[0]}')
@@ -265,23 +283,27 @@ p = 1.2041
 #Frontal surface area (meter2)
 A = 3.912
 
+#prp_totaldist = gp.quicksum(1.4 *((9.81 * sin(0) + 9.81 * 0.01 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j]) for i in range(n) for j in range(n))
+
+#prp_totaldist = gp.quicksum(1.4 *(0.0981* dist[i,j] * 1000 * 26000 * x[i,j]) for i in range(n) for j in range(n))
 prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 13000 * x[i,j] for i in range(n) for j in range(n))
+#prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
 
-prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
-
-prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (13 - (u[j]))*1000 for (i, j) in pairs)
 #prp_load = gp.quicksum(1.4 * ((9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (Q[j])*1000) for i in range(n) for j in range(n))
+prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * (26 - (u[j]))*1000 for (i, j) in pairs)
 
 macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
 
-prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * dist[i,j] *1000 * (40 * 0.2777778) for i in range(n) for j in range(n))
+speed =  gp.quicksum(dist[i,j] * x[i, j] * Q[j] * 0.078 for i in range(n) for j in range(n))
+
+prp_speed = gp.quicksum((1.4) * 0.5 * 1.2041 * 0.7 * dist[i,j] *1000 * (40 * 0.2777778)**2 for i in range(n) for j in range(n))
 
 prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in range(n) for j in range(n))
 
 
 
 
-#td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
+td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
 
 #co2 = gp.quicksum(x[i,j] * ((capacity) - (Q[i])) for i in Q for j in Q)
 
@@ -302,9 +324,9 @@ prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in r
 #co2 = gp.quicksum([x[i,j] * (capacity - (Q[i])) for i in Q for j in Q])
 
 #m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
-#m.setObjective(prp_totaldist, GRB.MINIMIZE)
+#m.setObjective(td, GRB.MINIMIZE)
 m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
-
+#m.setObjective(speed, GRB.MINIMIZE)
 #m.ModelSense = GRB.MINIMIZE
 # Optimize model
 
@@ -317,7 +339,7 @@ m.optimize(subtourelim)
 # Print optimal routes
 gesamt = 0
 vals = m.getAttr('X', x)
-selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.99)
+selected = gp.tuplelist((i, j) for i, j in vals.keys() if vals[i, j] > 0.90)
 for i, tup in enumerate(selected.select(0, '*')):
     print("\nRoute for truck {}:\n 0 Load(0)".format(i+1), end='')
     neighbor = tup[1]
@@ -343,14 +365,13 @@ print("\nTotal distance for all routes: {}".format(m.ObjVal))
 plt.figure(figsize=(5, 5))
 
 # draw problem state
-for i, row in df.iterrows():
+for i, row in newdf3.iterrows():
     if i == 0:
         plt.scatter(row['x'], row['y'], c='r')
         plt.text(row['x'] + 1, row['y'] + 1, 'depot')
     else:
         plt.scatter(row['x'], row['y'], c='black')
-        demand = row['demand']
-        plt.text(row['x'] + 1, row['y'] + 1, f'{i}({demand})')
+        plt.text(row['x'] + 1, row['y'] + 1,f'{i}({Q[i]}) - {locations[i]}')
 
 plt.xlim([-10, 110])
 plt.ylim([-10, 110])
@@ -375,7 +396,7 @@ for i, tup in enumerate(selected.select(0, '*')):
     # draw for each vehicle
     arrowprops = dict(arrowstyle='->', connectionstyle='arc3', edgecolor=cmap(i))
     for i, j in vehicle_route:
-        plt.annotate('', xy=[df.iloc[j]['x'], df.iloc[j]['y']], xytext=[df.iloc[i]['x'], df.iloc[i]['y']],
+        plt.annotate('', xy=[newdf3.iloc[j]['x'], newdf3.iloc[j]['y']], xytext=[newdf3.iloc[i]['x'], newdf3.iloc[i]['y']],
                          arrowprops=arrowprops)
 plt.show()
 # Print optimal routes

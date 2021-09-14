@@ -7,7 +7,7 @@ from scipy.optimize import fmin
 import math
 from scipy.optimize import minimize
 # 100 linearly spaced numbers
-x = np.linspace(0,100,100)
+x = np.linspace(0,10000,10000)
 
 
 #Fuel-to-air mass ratio
@@ -96,11 +96,11 @@ print(vopt)
 # setting the axes at the centre
 # fuel consumption in euro
 
-
+d = 1000
 
 #y = (c0 + c2/x + c3 * ((x*0.277778)**2)) * 100000 + c1 * 100000
 
-x = np.linspace(0,130,130)
+x = np.linspace(0,10000,10000)
 
 #y1 = la*(kNV * 100000/(x))
 # engine modul
@@ -108,35 +108,34 @@ y1 = la * (kNV * 100000/(x*0.277778))
 # speed module
 y2 = la * ((1/(1000*0.4*0.9)) * (0.5*0.7*4*1.2 * 100000 * ((x*0.277778)**2)))
 # weight module
-y3 = la * ((1/(1000*0.4*0.9)) * (grav * sin(0) + grav * 0.01 * cos(0)) * (6350 + x)*100000)
+y3 = la * ((1/(1000*0.4*0.9)) * (grav * sin(0) + grav * 0.01 * cos(0)) * (x)*100000)
 
 y4 = y1 + y2 + y3
-
+y5 = y3
 y = la * (kNV * 100000/(x*0.277778)) + la * ((1/(1000*0.4*0.9)) * 0.5*0.7*4*1.2 * 100000 * ((x*0.277778)**2)) + la * ((1/(1000*0.4*0.9)) * (grav * sin(0) + grav * 0.01 * cos(0)) * (6350 + x)*100000)
 np.all(np.diff(x) > 0)
 np.all(np.diff(y) > 0)
 
 x_value = interp(15, y, x)
 
-print("y50",y[40])
 print("test", x_value)
 #y = la*(gamma * beta * 100000 * x**2)
 
 fig = plt.figure()
 ax = fig.add_subplot(1, 1, 1)
-ax.set_xlim(5, 130)
-ax.set_ylim([0, 100])
+ax.set_xlim(5, 10000)
+ax.set_ylim([0, 30])
 # plot the function
-plt.plot(x, y1, 'b', label="Motorkomponente")
-plt.plot(x, y2, 'r', label="Geschwindigkeitskomponente")
-plt.plot(x, y3, 'g', label="Gewichtskomponente")
-plt.plot(x, y, 'purple', label="Kraftstoffverbrauch")
+plt.plot(x, y5, 'b', label="Gewicht")
+#plt.plot(x, y2, 'r', label="Geschwindigkeitskomponente")
+#plt.plot(x, y3, 'g', label="Gewichtskomponente")
+#plt.plot(x, y4, 'purple', label="Kraftstoffverbrauch")
 #plt.plot(x, y, 'p', label="test")
 
 print(np.interp(15, y4, x))
 
 plt.title("Kraftstoffverbrauch",fontsize=15)
-plt.xlabel("v(km/h)",fontsize=13)
+plt.xlabel("Gewicht in Kilogramm",fontsize=13)
 plt.ylabel("F(Liter/100km)",fontsize=13)
 plt.legend()
 plt.show()
