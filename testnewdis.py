@@ -22,159 +22,36 @@ from numpy.random import multinomial
 
 from gurobipy import GRB
 
-
-def make_edges(ll):
-
-    tuples = []
-
-    for ii in range(1, len(ll)):
-
-        tuples.append((ll[ii-1], ll[ii]))
-
-    return tuples
-
-# Callback - use lazy constraints to eliminate sub-tours
-
-def subtourelim(model, where):
-
-    if where == GRB.Callback.MIPSOL:
-
-        # make a list of edges selected in the solution
-
-        vals = model.cbGetSolution(model._x)
-
-        selected = gp.tuplelist((i, j) for i, j in model._x.keys()
-
-                                if vals[i, j] > 0.5)
-
-        # add the capacity constraints
-
-        for i, tup in enumerate(selected.select(0, '*')):
-
-            capacity_k = 0
-
-            nodes_k = [0]
-
-            neighbor = tup[1]
-
-            while neighbor:
-
-                capacity_k += Q[neighbor]
-
-                nodes_k.append(neighbor)
-
-                neighbor = selected.select(neighbor, '*')[0][1]
-
-            if capacity_k > capacity:
-
-                model.cbLazy(gp.quicksum(Q[j]*model._x[i,j] for i, j in make_edges(nodes_k)) <= capacity)
-
-        # find the shortest cycle in the selected edge list
-
-        tour = subtour(selected)
-
-        if len(tour) < n:
-
-            # add subtour elimination constr. for every pair of cities in tour
-
-            model.cbLazy(gp.quicksum(model._x[i, j]
-
-                                     for i, j in permutations(tour, 2))
-
-                         <= len(tour)-1)
-
-# Given a tuplelist of edges, find the shortest subtour not containing depot
-
-def subtour(edges):
-
-    unvisited = list(range(1, n))
-
-    cycle = range(n+1)  # initial length has 1 more city
-
-    # First, remove all nodes connected to depot
-
-    depot_connected = [j for i, j in edges.select(0, '*') if j != 0]
-
-    # print('Depot_connected:', depot_connected)
-
-    while depot_connected:
-
-        current = depot_connected.pop()
-
-        # print('Current:', current)
-
-        # print('Unvisited:', unvisited)
-
-        unvisited.remove(current)
-
-        neighbors = [j for i, j in edges.select(current, '*')
-
-                     if j in unvisited and j != 0]
-
-        depot_connected += neighbors
-
-    # Now, find subtour using tsp.py code
-
-    while unvisited:
-
-        thiscycle = []
-
-        neighbors = unvisited
-
-        while neighbors:
-
-            current = neighbors[0]
-
-            thiscycle.append(current)
-
-            unvisited.remove(current)
-
-            neighbors = [j for i, j in edges.select(current, '*')
-
-                         if j in unvisited]
-
-        if len(cycle) > len(thiscycle):
-
-            cycle = thiscycle
-
-    return cycle
-
 def create_data_model():
 
     """Stores the data for the Pollution Routing Problem."""
 
     data = {}
-    df = pd.DataFrame(np.array([[55, 55], [35, 60], [10, 60], [50, 70], [75, 90], [100, 40], [70, 10], [40, 20], [40, 40], [20, 10], [5, 15]]), columns=['x', 'y'])
-    #distances = pd.DataFrame(distance_matrix(df[['x', 'y']].values, df[['x', 'y']].values), index=df.index,columns=df.index).values
-
-
     # Initialize a random points matrix with values between 0, 10 (all points in the upper right 0,10 quadrant)
     rnd = np.random
-    np.random.seed(15)
+    np.random.seed(7)
 
-    rows = 10  # number of points
+    rows = 13 # number of points
     columns = 2  # number of dimensions - 2=2D, 3=3D etc.
     samples = np.empty((rows, columns))
     for i in xrange(0, rows):
         for j in xrange(0, columns):
-            samples[i][j] = rnd.randint(0, 100)
+            samples[i][j] = rnd.randint(0, 300)
 
     df3 = pd.DataFrame(samples, columns=['x', 'y'])
-    print(df3)
     distances = pd.DataFrame(distance_matrix(df3[['x', 'y']].values, df3[['x', 'y']].values), index=df3.index,columns = df3.index).values
 
     data['distance_matrix'] = distances
-    data['num_vehicles'] = 3
+    data['num_vehicles'] = 5
     data['depot'] = 0
-    #data['demands'] = [0.0, 3.0, 3.0, 6.0, 3.0, 3.0, 6.0, 4.0, 2.0, 3.0, 3.0]
     data['vehicle_capacities'] = [12.0, 12.0, 12.0]
-    rn = 10
+    rn = rows
     rcap = data['vehicle_capacities']
     print (rcap)
     rm = rcap[0] * data['num_vehicles']
     b = rnd.multinomial(rm, np.ones(rn) / rn)
-    data['demands'] = b
-
+    #data['demands'] = [0,5,12,7,5,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3]
+    data['demands'] =b
     data['df3'] = df3
 
     return data
@@ -199,20 +76,20 @@ capacity = capacities[0]
 print(Q)
 
 n = len(distList)
-
 dist = {(i, j): distList[i][j] for i in range(n) for j in range(n)}
+d = {i: Q[i] for i in range(1,n)}
 
-K = data['num_vehicles']
+K = 6
 
-if K > n:
+#if K > n:
 
-    print("npoints must be at least as large as ntrucks")
+    #print("npoints must be at least as large as ntrucks")
 
-    sys.exit(1)
+    #sys.exit(1)
 
 print(f"Total {n-1} customers, {K} trucks with {capacity} capacity")
 
-locations = ['0','1', '2','3','4','5','6','7','8','9','10']
+locations = np.arange(0, 25, 1).tolist()
 print(locations[0])
 
 
@@ -227,45 +104,57 @@ for i, row in newdf3.iterrows():
         plt.scatter(row['x'], row['y'], c='black')
         plt.text(row['x'] + 1, row['y'] + 1, f'{i}({Q[i]}) - {locations[i]}')
 
-plt.xlim([-10, 110])
-plt.ylim([-10, 110])
+plt.xlim([-10, n *50])
+plt.ylim([-10, n *50])
 plt.title('Kunde: Nummer(Nachfrage)')
 plt.show()
 
-m = gp.Model()
+################################################################# Create Gurobi Model
+m = gp.Model("MultObj")
 
-# Create variables
+################################################################# Create variables
 
-x = m.addVars(dist.keys(), obj=dist, vtype=GRB.BINARY, name='e')
+x = m.addVars(dist.keys(), obj=dist, vtype=GRB.BINARY, name='x')
+y = m.addVars(d, vtype=GRB.CONTINUOUS, name='y')
 
-# Inbound and outbound flow is always 1, except for depot
+################################################################# add truck number as a variable
+p = m.addVar(vtype=GRB.INTEGER, obj=1.0, name="p", lb=1, ub=K)
 
-m.addConstrs(x.sum(i, '*') == 1 for i in range(1, n))
-
-m.addConstrs(x.sum('*', i) == 1 for i in range(1, n))
-
-# all customers are served
-
-AllNodesVisited={i: gp.quicksum(x[j,i] for j in range(n) if i!=j) for i in range(1,n)} # (2.2)
-
-m.addConstrs(AllNodesVisited[i]==1 for i in range(1,n))
-
-# Depot has inbound and outbound flow equal to number of trucks
-
-m.addConstr(x.sum(0, '*') <= K)
-
-m.addConstr(x.sum('*', 0) <= K)
-
-# Track cumulative demand at each node; cannot exceed capacity
+################################################################# Track cumulative demand at each node; cannot exceed capacity
 u = m.addVars(n, ub=capacity, name='u')
 pairs = [(i, j) for i in range(n) for j in range(1, n) if i != j]
-m.addConstrs((u[j] >= u[i] + Q[j] - (1 - x[i, j]) * capacity
-             for (i, j) in pairs), 'demand')
+m.addConstrs((u[j] >= u[i] + Q[j] - (1 - x[i, j]) * capacity for (i, j) in pairs), 'demand')
 
-
-# Depot cumulative demand is always 0
+################################################################# Depot cumulative demand is always 0
 u[0].LB = 0
 u[0].UB = 0
+m.update()
+
+
+
+# Add the constraints
+m.addConstr(gp.quicksum(x[0, j] for j in range(1, n)) == p)  # (9)
+
+inflow = {j: gp.quicksum(x[i, j] for i in range(n) if i != j) for j in range(1, n)}  # (10)
+m.addConstrs(inflow[j] == 1 for j in range(1, n))
+
+outflow = {i: gp.quicksum(x[i, j] for j in range(1, n) if j != i) for i in range(1, n)}  # (11)
+m.addConstrs(outflow[i] <= 1 for i in range(1, n))
+
+# Inbound and outbound flow is always 1, except for depot
+m.addConstrs(x.sum(i, '*') == 1 for i in range(1, n))
+m.addConstrs(x.sum('*', i) == 1 for i in range(1, n))
+
+
+
+for i in range(1, n):
+    for j in range(1, n):
+        if i != j:
+            m.addConstr(y[i] + d[j] * x[i, j] - capacity * (1 - x[i, j]) <= y[j])
+
+for i in range(1,n):
+    m.addConstr(y[i] >= d[i])
+    m.addConstr(y[i] <= capacity)
 m.update()
 
 input_diesel_leer = 21.3
@@ -301,9 +190,12 @@ A = 3.912
 #prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] *1000 *  ((u[j]))*1000 for (i, j) in pairs)
 
 #prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
-prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
+prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 *  26000*x[i, j]  for i in range(n) for j in range(n))
 
-prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (26-(u[i] + Q[j]))*1000 * x[i,j]  for (i, j) in pairs)
+#prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
+
+prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] *1000* (38-(u[i] + Q[j]))* 1000*x[i, j]  for i in range(n) for j in range(n))
+
 #(u[i] + Q[j])
 #prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * x[i, j]* (Q[j])*1000  for (i, j) in pairs)
 
@@ -320,7 +212,7 @@ prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in r
 
 
 
-td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
+td = gp.quicksum(x[i,j] * dist[i,j]  for i in range(n) for j in range(n))
 
 #co2 = gp.quicksum(x[i,j] * ((capacity) - (Q[i])) for i in Q for j in Q)
 
@@ -331,28 +223,28 @@ td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
 
 #prp_loadcost = gp.quicksum(x[i,j]* (7 - Q[i]) * dist[i,j] for (i, j) in pairs)
 
-#m.setObjectiveN(totaldist, 0)
-#m.setObjectiveN(prp_totaldist + prp_loadcost + prp_speed + prp_driver, 1)
+#m.setObjectiveN(prp_totaldist, 0)
+#m.setObjectiveN(-prp_load,1)
+#m.setObjectiveN(prp_speed, 2)
+#m.setObjectiveN(prp_driver, 2)
 #m.setObjectiveN(speed,0)
-
-
 
 
 #co2 = gp.quicksum([x[i,j] * (capacity - (Q[i])) for i in Q for j in Q])
 
-#m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
-#m.setObjective(td, GRB.MINIMIZE)
 m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
+#m.setObjective(td, GRB.MINIMIZE)
+#m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
 #m.setObjective(speed, GRB.MINIMIZE)
-#m.ModelSense = GRB.MINIMIZE
-# Optimize model
+# Optimize multi object model
+#m.setObjectiveN(prp_totaldist, 0)
+#m.setOjbectiveN(prp_load, 1)
+
+m.update()
 
 m._x = x
-
-m.Params.LazyConstraints = 1
-
-m.optimize(subtourelim)
-
+m.update()
+m.optimize()
 # Print optimal routes
 gesamt = 0
 vals = m.getAttr('X', x)
@@ -390,8 +282,8 @@ for i, row in newdf3.iterrows():
         plt.scatter(row['x'], row['y'], c='black')
         plt.text(row['x'] + 1, row['y'] + 1,f'{i}({Q[i]}) - {locations[i]}')
 
-plt.xlim([-10, 110])
-plt.ylim([-10, 110])
+plt.xlim([-10, n *50])
+plt.ylim([-10, n *50])
 plt.title('Kunde: Nummer(Nachfrage)')
 
 
@@ -530,7 +422,7 @@ if empty_vehicle <= 10:
         energy = load_induced + speed_induced
         fuel += averagefuel
         gfuel += weight_fuel_rate
-        print("While Schleife Route distance: {} zu multiplizierendes Gewicht {} {}".format(truck_dist, truck_load, tr_dist))
+        #print("While Schleife Route distance: {} zu multiplizierendes Gewicht {} {}".format(truck_dist, truck_load))
         print(" -> 0 Load({})".format(truck_load))
         print("Route distance: {}".format(truck_dist))
         print("Route load: {}".format(truck_load))
@@ -548,6 +440,7 @@ if empty_vehicle <= 10:
 
 
 
-m.write("out.mst")
-m.write("out.sol")
-m.write("out.lp")
+#m.write("out.mst")
+#m.write("out.sol")
+#m.write("out.lp")
+

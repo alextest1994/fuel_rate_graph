@@ -147,7 +147,7 @@ def create_data_model():
                              columns=df.index).values
 
     data['distance_matrix'] = distances
-    data['num_vehicles'] = 3
+    data['num_vehicles'] = 9
     data['depot'] = 0
     data['demands'] = [0.0, 3.0, 3.0, 6.0, 3.0, 3.0, 6.0, 4.0, 2.0, 3.0, 3.0]
     data['vehicle_capacities'] = [12.0, 12.0, 12.0, 12.0]
@@ -177,7 +177,7 @@ n = len(distList)
 
 dist = {(i, j): distList[i][j] for i in range(n) for j in range(n)}
 
-K = data['num_vehicles']
+K = 9
 
 if K > n:
 
@@ -265,14 +265,17 @@ p = 1.2041
 #Frontal surface area (meter2)
 A = 3.912
 
-prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j] for i in range(n) for j in range(n))
+#lastprp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 * x[i,j]  for i in range(n) for j in range(n))
 
 #prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
 
-prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (26-(u[i] + Q[j]))*1000 * x[i,j]  for (i, j) in pairs)
-
-
+#lastprp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (38-(u[i] + Q[j]))*1000  for i in range(n) for j in range(n))
 #prp_load = gp.quicksum(1.4 * ((9.81 * sin(0) + 9.81 * 0.01 * cos(0)) * dist[i,j] * 1000 * (Q[j])*1000) for i in range(n) for j in range(n))
+prp_totaldist = gp.quicksum(1.4 *(9.81 * sin(0) + 9.81 * 0.008 * cos(0))* dist[i,j] * 1000 * 26000 *x[i, j] for i in range(n) for j in range(n))
+
+#prp_loadcost = gp.quicksum((Q[j]*1000) * dist[i,j] * 1000 * x[i,j] for i in range(n) for j in range(n))
+
+prp_load = gp.quicksum(1.4 * (9.81 * sin(0) + 9.81 * 0.008 * cos(0)) * dist[i,j] * 1000  * (u[i] + Q[j]) for i in range(n) for j in range(n))
 
 #macf = gp.quicksum((Q[j])  * x[i,j] for (i, j) in pairs)
 
@@ -284,7 +287,7 @@ prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in r
 
 
 
-#td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
+td = gp.quicksum(x[i,j] * dist[i,j] for i in range(n) for j in range(n))
 
 #co2 = gp.quicksum(x[i,j] * ((capacity) - (Q[i])) for i in Q for j in Q)
 
@@ -300,22 +303,22 @@ prp_driver = gp.quicksum(0.0033 * ((dist[i,j]*1000)/(40 * 0.2777778)) for i in r
 #m.setObjectiveN(speed,0)
 
 
-
-
+m.setObjectiveN(prp_totaldist, 0)
+m.setObjectiveN(-prp_load,1)
+m.setObjectiveN(prp_speed, 2)
+m.setObjectiveN(prp_driver, 2)
 #co2 = gp.quicksum([x[i,j] * (capacity - (Q[i])) for i in Q for j in Q])
 
 #m.setObjective(prp_totaldist + prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
-#m.setObjective(prp_totaldist, GRB.MINIMIZE)
-m.setObjective(prp_totaldist+ prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
+#m.setObjective(td, GRB.MINIMIZE)
+#m.setObjective(prp_totaldist+ prp_load + prp_speed + prp_driver, GRB.MINIMIZE)
 
 #m.ModelSense = GRB.MINIMIZE
 # Optimize model
 
 m._x = x
-
-m.Params.LazyConstraints = 1
-
-m.optimize(subtourelim)
+m.update()
+m.optimize()
 
 # Print optimal routes
 gesamt = 0
